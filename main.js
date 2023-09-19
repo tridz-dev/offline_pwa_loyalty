@@ -15,11 +15,13 @@ $(document).ready(function () {
   }
 
   $("#showHome").click();
+
   // Initialize Dexie
   const db = new Dexie("myDatabase");
-  db.version(1).stores({
+  db.version(2).stores({
     customers: "++id, name, gender, location, phone",
     visits: "++id, date, amount, services, customerId, category",
+    settings: 'key,value'
   });
 
   // Generic CRUD Operations
@@ -48,6 +50,23 @@ $(document).ready(function () {
       renderFn(records);
     });
   }
+
+  $("#saveSettings").click(saveSettings);
+
+  // Save settings
+  async function saveSettings() {
+    const settingsStr = $("#settingsEditor").val();
+    await db.settings.put({ key: "config", value: settingsStr });
+    alert("Settings saved successfully.");
+  }
+  
+
+  // Load settings
+  async function loadSettings() {
+    const setting = await db.settings.get("config");
+    $("#settingsEditor").val(setting.value);
+  }
+  
 
   function renderCustomerList(customers) {
     let html = "";
@@ -144,11 +163,35 @@ $(document).ready(function () {
     $("#visits").hide();
   });
 
-  $("#showAddTransaction").click(() => {
+  //Populate data for transaction form
+  async function populateTransactionForm() {
+    const setting = await db.settings.get("config");
+    if (setting) {
+      const lines = setting.value.split("\n");
+      const categories = lines[0].split(":")[1].split(",").map(s => s.trim());
+      const services = lines[1].split(":")[1].split(",").map(s => s.trim());
+  
+      let categoryOptions = "";
+      categories.forEach((cat) => {
+        categoryOptions += `<option value="${cat}">${cat}</option>`;
+      });
+      $("#category").html(categoryOptions);
+  
+      let serviceOptions = "";
+      services.forEach((service) => {
+        serviceOptions += `<option value="${service}">${service}</option>`;
+      });
+      $("#services").html(serviceOptions);
+    }
+  }
+  
+
+  $("#showAddTransaction").click(async () => {
     $("#home").hide();
     $("#addCustomer").hide();
     $("#addTransaction").show();
     $("#visits").hide();
+    await populateTransactionForm();
     refreshList(visitCrud, renderTransactionList);
   });
 
@@ -179,6 +222,15 @@ $(document).ready(function () {
     $("#visits").show();
 
     refreshList(visitCrud, renderTransactionList);
+  });
+
+  $("#showSettings").click(() => {
+    $("#settings").show();
+    $("#home").hide();
+    $("#addCustomer").hide();
+    $("#addTransaction").hide();
+    $("#visits").hide();
+    loadSettings(); // Load settings from Dexie DB
   });
 
   // Function to show toast message
@@ -232,6 +284,18 @@ $(document).ready(function () {
   // Initialize event handlers
   $("#burgerMenu, #menuClose").click(toggleDrawerMenu);
   $(
-    "#drawerShowHome, #drawerShowVisits, #drawerShowAddCustomer, #drawerShowAddTransaction"
+    "#drawerShowHome, #drawerShowVisits, #drawerShowAddCustomer, #drawerShowAddTransaction",
+    "#drawerShowSettings"
   ).click(drawerMenuClickHandler);
+
+  //Settings
+  $("#saveSettings").click(saveSettings);
+  $("#showSettings").click(() => {
+    $("#settings").show();
+    $("#home").hide();
+    $("#addCustomer").hide();
+    $("#addTransaction").hide();
+    $("#visits").hide();
+    loadSettings();
+  });
 });
