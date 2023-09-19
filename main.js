@@ -103,11 +103,6 @@ $(document).ready(function () {
         refreshList(customerCrud, renderCustomerList, c => c.name.includes(query) || c.phone.includes(query));
     });
 
-    $('#searchTransactionForm').submit(function (e) {
-        e.preventDefault();
-        const date = $('#filterTransactionDate').val();
-        refreshList(visitCrud, renderTransactionList, v => v.date === date);
-    });
 
     // Filter Transaction by Date
     const today = new Date().toISOString().split('T')[0];
