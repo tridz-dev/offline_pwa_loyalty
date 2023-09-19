@@ -109,6 +109,26 @@ $(document).ready(function () {
         refreshList(visitCrud, renderTransactionList, v => v.date === date);
     });
 
+    // Filter Transaction by Date
+    const today = new Date().toISOString().split('T')[0];
+    $('#fromDate').val(today);
+    $('#toDate').val(today);
+    $('#date').val(today);
+
+    // Add this code to handle the filter form submission
+    $('#filterTransactionForm').submit(function (e) {
+        e.preventDefault();
+        const fromDate = new Date($('#fromDate').val());
+        const toDate = new Date($('#toDate').val());
+        toDate.setHours(23, 59, 59, 999);  // Set time to end of the day
+
+        refreshList(visitCrud, renderTransactionList, v => {
+            const visitDate = new Date(v.date);
+            return visitDate >= fromDate && visitDate <= toDate;
+        });
+    });
+
+
     // Page Switch and Initial Load
     $('#showHome').click(() => {
         $('#home').show();
