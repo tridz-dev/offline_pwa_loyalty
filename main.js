@@ -1,4 +1,17 @@
+
+
 $(document).ready(function () {
+    // Add this code in your main.js or directly in your HTML inside a <script> tag
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js')
+        .then((registration) => {
+            console.log('Service Worker registered with scope:', registration.scope);
+        })
+        .catch((error) => {
+            console.log('Service Worker registration failed:', error);
+        });
+    }
+  
     $('#showHome').click();
     // Initialize Dexie
     const db = new Dexie("myDatabase");
