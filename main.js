@@ -21,7 +21,7 @@ $(document).ready(function () {
   db.version(2).stores({
     customers: "++id, name, gender, location, phone",
     visits: "++id, date, amount, services, customerId, category",
-    settings: 'key,value'
+    settings: "key,value",
   });
 
   // Generic CRUD Operations
@@ -40,6 +40,19 @@ $(document).ready(function () {
       });
     }
   }
+  // Set default settings
+  async function setDefaultSettings() {
+    const existingSetting = await db.settings.get("config");
+    if (!existingSetting) {
+      const defaultSettings =
+        "categories: Grooming,Beautification,Massage\nServices: Hair Cut,Beard Trimming,Facial,Head Massage,Neck Massage";
+      await db.settings.put({ key: "config", value: defaultSettings });
+    }
+  }
+  setDefaultSettings().then(() => {
+    // Load settings into the form
+    loadSettings();
+  });
 
   // Instantiate CRUD for customers and visits
   const customerCrud = new CrudOperations("customers");
@@ -59,14 +72,13 @@ $(document).ready(function () {
     await db.settings.put({ key: "config", value: settingsStr });
     alert("Settings saved successfully.");
   }
-  
 
   // Load settings
   async function loadSettings() {
     const setting = await db.settings.get("config");
-    $("#settingsEditor").val(setting.value);
+    const value = setting ? setting.value : "";
+    $("#settingsEditor").val(value);
   }
-  
 
   function renderCustomerList(customers) {
     let html = "";
@@ -153,6 +165,7 @@ $(document).ready(function () {
     $("#addCustomer").hide();
     $("#addTransaction").hide();
     $("#visits").hide();
+    $("#settings").hide()
     refreshList(customerCrud, renderCustomerList);
   });
 
@@ -160,6 +173,7 @@ $(document).ready(function () {
     $("#home").hide();
     $("#addCustomer").show();
     $("#addTransaction").hide();
+    $("#settings").hide()
     $("#visits").hide();
   });
 
@@ -168,15 +182,21 @@ $(document).ready(function () {
     const setting = await db.settings.get("config");
     if (setting) {
       const lines = setting.value.split("\n");
-      const categories = lines[0].split(":")[1].split(",").map(s => s.trim());
-      const services = lines[1].split(":")[1].split(",").map(s => s.trim());
-  
+      const categories = lines[0]
+        .split(":")[1]
+        .split(",")
+        .map((s) => s.trim());
+      const services = lines[1]
+        .split(":")[1]
+        .split(",")
+        .map((s) => s.trim());
+
       let categoryOptions = "";
       categories.forEach((cat) => {
         categoryOptions += `<option value="${cat}">${cat}</option>`;
       });
       $("#category").html(categoryOptions);
-  
+
       let serviceOptions = "";
       services.forEach((service) => {
         serviceOptions += `<option value="${service}">${service}</option>`;
@@ -184,12 +204,12 @@ $(document).ready(function () {
       $("#services").html(serviceOptions);
     }
   }
-  
 
   $("#showAddTransaction").click(async () => {
     $("#home").hide();
     $("#addCustomer").hide();
     $("#addTransaction").show();
+    $("#settings").hide()
     $("#visits").hide();
     await populateTransactionForm();
     refreshList(visitCrud, renderTransactionList);
@@ -219,6 +239,7 @@ $(document).ready(function () {
     $("#home").hide();
     $("#addCustomer").hide();
     $("#addTransaction").hide();
+    $("#settings").hide()
     $("#visits").show();
 
     refreshList(visitCrud, renderTransactionList);
