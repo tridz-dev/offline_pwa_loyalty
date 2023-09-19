@@ -159,24 +159,6 @@ $(document).ready(function () {
     });
   });
 
-  // Page Switch and Initial Load
-  $("#showHome").click(() => {
-    $("#home").show();
-    $("#addCustomer").hide();
-    $("#addTransaction").hide();
-    $("#visits").hide();
-    $("#settings").hide()
-    refreshList(customerCrud, renderCustomerList);
-  });
-
-  $("#showAddCustomer").click(() => {
-    $("#home").hide();
-    $("#addCustomer").show();
-    $("#addTransaction").hide();
-    $("#settings").hide()
-    $("#visits").hide();
-  });
-
   //Populate data for transaction form
   async function populateTransactionForm() {
     const setting = await db.settings.get("config");
@@ -205,16 +187,6 @@ $(document).ready(function () {
     }
   }
 
-  $("#showAddTransaction").click(async () => {
-    $("#home").hide();
-    $("#addCustomer").hide();
-    $("#addTransaction").show();
-    $("#settings").hide()
-    $("#visits").hide();
-    await populateTransactionForm();
-    refreshList(visitCrud, renderTransactionList);
-  });
-
   // Function to render the transaction list
   function renderTransactionList(visits) {
     visits.sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by date
@@ -233,26 +205,6 @@ $(document).ready(function () {
     });
     $("#transactionList").html(html);
   }
-
-  // Click event for the Visits button
-  $("#showVisits").click(() => {
-    $("#home").hide();
-    $("#addCustomer").hide();
-    $("#addTransaction").hide();
-    $("#settings").hide()
-    $("#visits").show();
-
-    refreshList(visitCrud, renderTransactionList);
-  });
-
-  $("#showSettings").click(() => {
-    $("#settings").show();
-    $("#home").hide();
-    $("#addCustomer").hide();
-    $("#addTransaction").hide();
-    $("#visits").hide();
-    loadSettings(); // Load settings from Dexie DB
-  });
 
   // Function to show toast message
   function showToast(message) {
@@ -309,14 +261,51 @@ $(document).ready(function () {
     "#drawerShowSettings"
   ).click(drawerMenuClickHandler);
 
-  //Settings
+  //Save Settings
   $("#saveSettings").click(saveSettings);
+
+  // Show hide sections code and event handlers
+  $("#showVisits").click(() => {
+    showSection("visits");
+    refreshList(visitCrud, renderTransactionList);
+  });
+
   $("#showSettings").click(() => {
-    $("#settings").show();
+    showSection("settings");
+    loadSettings(); // Load settings from Dexie DB
+  });
+
+  $("#showSettings").click(() => {
+    showSection("settings");
+    loadSettings();
+  });
+
+  // Page Switch and Initial Load
+  $("#showHome").click(() => {
+    showSection("home");
+    refreshList(customerCrud, renderCustomerList);
+  });
+
+  $("#showAddCustomer").click(() => {
+    showSection("addCustomer");
+  });
+
+  $("#showAddTransaction").click(async () => {
+    showSection("addTransaction");
+    await populateTransactionForm();
+    refreshList(visitCrud, renderTransactionList);
+  });
+  function hideAllSections() {
     $("#home").hide();
     $("#addCustomer").hide();
     $("#addTransaction").hide();
     $("#visits").hide();
-    loadSettings();
-  });
+    $("#settings").hide();
+  }
+
+  // Show specific section
+  function showSection(sectionId) {
+    hideAllSections();
+    $(`#${sectionId}`).show();
+  }
 });
