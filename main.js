@@ -1,30 +1,16 @@
 $(document).ready(function () {
-  // Add this code in your main.js or directly in your HTML inside a <script> tag
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker
-      .register("/service-worker.js")
-      .then((registration) => {
-        console.log(
-          "Service Worker registered with scope:",
-          registration.scope
-        );
-      })
-      .catch((error) => {
-        console.log("Service Worker registration failed:", error);
-      });
+  function initDatabase() {
+    const db = new Dexie("myDatabase");
+    db.version(2).stores({
+      customers: "++id, name, gender, location, phone",
+      visits: "++id, date, amount, services, customerId, category",
+      settings: "key,value",
+    });
+    return db;
   }
 
-  $("#showHome").click();
+  const db = initDatabase();
 
-  // Initialize Dexie
-  const db = new Dexie("myDatabase");
-  db.version(2).stores({
-    customers: "++id, name, gender, location, phone",
-    visits: "++id, date, amount, services, customerId, category",
-    settings: "key,value",
-  });
-
-  // Generic CRUD Operations
   class CrudOperations {
     constructor(tableName) {
       this.table = db[tableName];
@@ -40,7 +26,14 @@ $(document).ready(function () {
       });
     }
   }
-  // Set default settings
+
+  function createCrudInstance(tableName) {
+    return new CrudOperations(tableName);
+  }
+
+  const customerCrud = createCrudInstance("customers");
+  const visitCrud = createCrudInstance("visits");
+
   async function setDefaultSettings() {
     const existingSetting = await db.settings.get("config");
     if (!existingSetting) {
@@ -49,14 +42,18 @@ $(document).ready(function () {
       await db.settings.put({ key: "config", value: defaultSettings });
     }
   }
-  setDefaultSettings().then(() => {
-    // Load settings into the form
-    loadSettings();
-  });
 
-  // Instantiate CRUD for customers and visits
-  const customerCrud = new CrudOperations("customers");
-  const visitCrud = new CrudOperations("visits");
+  async function saveSettings() {
+    const settingsStr = $("#settingsEditor").val();
+    await db.settings.put({ key: "config", value: settingsStr });
+    alert("Settings saved successfully.");
+  }
+
+  async function loadSettings() {
+    const setting = await db.settings.get("config");
+    const value = setting ? setting.value : "";
+    $("#settingsEditor").val(value);
+  }
 
   function refreshList(crudInstance, renderFn, filter = null) {
     crudInstance.getAll(filter).then((records) => {
@@ -64,40 +61,39 @@ $(document).ready(function () {
     });
   }
 
+  // Initialize
+  setDefaultSettings().then(() => {
+    loadSettings();
+  });
+
+  refreshList(customerCrud, renderCustomerList);
+  refreshList(visitCrud, renderTransactionList);
+
+  // Event Binding
   $("#saveSettings").click(saveSettings);
+  $("#burgerMenu, #menuClose").click(toggleDrawerMenu);
+  $(
+    "#drawerShowHome, #drawerShowVisits, #drawerShowAddCustomer, #drawerShowAddTransaction",
+    "#drawerShowSettings"
+  ).click(drawerMenuClickHandler);
 
-  // Save settings
-  async function saveSettings() {
-    const settingsStr = $("#settingsEditor").val();
-    await db.settings.put({ key: "config", value: settingsStr });
-    alert("Settings saved successfully.");
-  }
+  $(document).on("click", ".btn-add-visit", function () {
+    const customerId = $(this).data("id");
+    $("#customerId").val(customerId);
+    $("#showAddTransaction").click();
+  });
 
-  // Load settings
-  async function loadSettings() {
-    const setting = await db.settings.get("config");
-    const value = setting ? setting.value : "";
-    $("#settingsEditor").val(value);
-  }
+  $(document).on("click", ".btn-delete", function () {
+    const customerId = $(this).data("id");
+    if (confirm("Are you sure you want to delete this customer?")) {
+      customerCrud.table.delete(customerId).then(() => {
+        showToast("Customer deleted successfully");
+        refreshList(customerCrud, renderCustomerList);
+      });
+    }
+  });
 
-  function renderCustomerList(customers) {
-    let html = "";
-    console.log("customers: ", customers);
-    customers.forEach((c) => {
-      html += `<tr class="table-row bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                        <td class="table-cell px-6 py-4">${c.id}</td>
-                        <td class="table-cell px-6 py-4">${c.name}</td>
-                        <td class="table-cell px-6 py-4 w-1/6">${c.gender}</td>
-                        <td class="table-cell px-6 py-4">${c.phone}</td>
-                        <td class="table-cell px-6 py-4">
-                            <button class="btn-add-visit btn py-2.5 px-2.5 mr-2 mb-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-sm border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" data-id="${c.id}">Add Visit</button>
-                            <button class="btn-delete" data-id="${c.id}">Delete</button>
-                        </td>
-                    </tr>`;
-    });
-    $("#customerList").html(html);
-  }
-
+  // Form Handling
   $("#addCustomer").submit(function (e) {
     e.preventDefault();
     const formData = $(this)
@@ -129,7 +125,6 @@ $(document).ready(function () {
     });
   });
 
-  // Search and Filter Handlers
   $("#searchCustomerForm").submit(function (e) {
     e.preventDefault();
     const query = $("#searchCustomer").val();
@@ -146,20 +141,67 @@ $(document).ready(function () {
   $("#toDate").val(today);
   $("#date").val(today);
 
-  // Add this code to handle the filter form submission
   $("#filterTransactionForm").submit(function (e) {
     e.preventDefault();
     const fromDate = new Date($("#fromDate").val());
     const toDate = new Date($("#toDate").val());
-    toDate.setHours(23, 59, 59, 999); // Set time to end of the day
-
+    toDate.setHours(23, 59, 59, 999);
     refreshList(visitCrud, renderTransactionList, (v) => {
       const visitDate = new Date(v.date);
       return visitDate >= fromDate && visitDate <= toDate;
     });
   });
 
-  //Populate data for transaction form
+  // Routing
+  $("#showHome").click(() => {
+    showSection("home");
+    refreshList(customerCrud, renderCustomerList);
+  });
+
+  $("#showAddCustomer").click(() => {
+    showSection("addCustomer");
+  });
+
+  $("#showAddTransaction").click(async () => {
+    showSection("addTransaction");
+    await populateTransactionForm();
+    refreshList(visitCrud, renderTransactionList);
+  });
+
+  $("#showVisits").click(() => {
+    showSection("visits");
+    refreshList(visitCrud, renderTransactionList);
+  });
+
+  $("#showSettings").click(() => {
+    showSection("settings");
+    loadSettings();
+  });
+
+  function toggleDrawerMenu() {
+    $drawerMenu.toggleClass("translate-x-full translate-x-0 hidden");
+  }
+
+  function drawerMenuClickHandler() {
+    const id = this.id.replace("drawerShow", "show");
+    $(`#${id}`).click();
+    toggleDrawerMenu();
+  }
+
+  function hideAllSections() {
+    $("#home").hide();
+    $("#addCustomer").hide();
+    $("#addTransaction").hide();
+    $("#visits").hide();
+    $("#settings").hide();
+  }
+
+  function showSection(sectionId) {
+    hideAllSections();
+    $(`#${sectionId}`).show();
+  }
+
+  // Render and Populate Functions
   async function populateTransactionForm() {
     const setting = await db.settings.get("config");
     if (setting) {
@@ -187,9 +229,25 @@ $(document).ready(function () {
     }
   }
 
-  // Function to render the transaction list
+  function renderCustomerList(customers) {
+    let html = "";
+    customers.forEach((c) => {
+      html += `<tr class="table-row bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                        <td class="table-cell px-6 py-4">${c.id}</td>
+                        <td class="table-cell px-6 py-4">${c.name}</td>
+                        <td class="table-cell px-6 py-4 w-1/6">${c.gender}</td>
+                        <td class="table-cell px-6 py-4">${c.phone}</td>
+                        <td class="table-cell px-6 py-4">
+                            <button class="btn-add-visit btn py-2.5 px-2.5 mr-2 mb-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-sm border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" data-id="${c.id}">Add Visit</button>
+                            <button class="btn-delete" data-id="${c.id}">Delete</button>
+                        </td>
+                    </tr>`;
+    });
+    $("#customerList").html(html);
+  }
+
   function renderTransactionList(visits) {
-    visits.sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by date
+    visits.sort((a, b) => new Date(a.date) - new Date(b.date));
     let html = "";
     visits.forEach((v) => {
       html += `<tr class="table-row bg-white border-b dark:bg-gray-800 dark:border-gray-700">
@@ -199,14 +257,14 @@ $(document).ready(function () {
                         <td class="table-cell px-6 py-4">${v.services.join(
                           ", "
                         )}</td>
-                        // <td class="table-cell px-6 py-4">${v.customerId}</td>
+                        <td class="table-cell px-6 py-4">${v.customerId}</td>
                         <td class="table-cell px-6 py-4">${v.category}</td>
                     </tr>`;
     });
     $("#transactionList").html(html);
   }
 
-  // Function to show toast message
+  // Utility Functions
   function showToast(message) {
     const toast = $(
       `<div class="toast fixed bottom-4 right-4 bg-blue-500 text-white p-4 rounded-lg">${message}</div>`
@@ -215,97 +273,5 @@ $(document).ready(function () {
     setTimeout(() => {
       toast.remove();
     }, 5000);
-  }
-
-  // Event listener for "Add Visit" button
-  $(document).on("click", ".btn-add-visit", function () {
-    const customerId = $(this).data("id");
-    $("#customerId").val(customerId);
-    $("#showAddTransaction").click();
-  });
-
-  // Event listener for "Delete" button
-  $(document).on("click", ".btn-delete", function () {
-    const customerId = $(this).data("id");
-    if (confirm("Are you sure you want to delete this customer?")) {
-      customerCrud.table.delete(customerId).then(() => {
-        showToast("Customer deleted successfully");
-        refreshList(customerCrud, renderCustomerList);
-      });
-    }
-  });
-
-  // Load initial data
-  refreshList(customerCrud, renderCustomerList);
-  refreshList(visitCrud, renderTransactionList);
-
-  // Cache jQuery selectors
-  const $drawerMenu = $("#drawerMenu");
-
-  // Toggle Drawer Menu
-  function toggleDrawerMenu() {
-    $drawerMenu.toggleClass("translate-x-full translate-x-0 hidden");
-  }
-
-  // Drawer Menu Click Handlers
-  function drawerMenuClickHandler() {
-    const id = this.id.replace("drawerShow", "show");
-    $(`#${id}`).click();
-    toggleDrawerMenu();
-  }
-
-  // Initialize event handlers
-  $("#burgerMenu, #menuClose").click(toggleDrawerMenu);
-  $(
-    "#drawerShowHome, #drawerShowVisits, #drawerShowAddCustomer, #drawerShowAddTransaction",
-    "#drawerShowSettings"
-  ).click(drawerMenuClickHandler);
-
-  //Save Settings
-  $("#saveSettings").click(saveSettings);
-
-  // Show hide sections code and event handlers
-  $("#showVisits").click(() => {
-    showSection("visits");
-    refreshList(visitCrud, renderTransactionList);
-  });
-
-  $("#showSettings").click(() => {
-    showSection("settings");
-    loadSettings(); // Load settings from Dexie DB
-  });
-
-  $("#showSettings").click(() => {
-    showSection("settings");
-    loadSettings();
-  });
-
-  // Page Switch and Initial Load
-  $("#showHome").click(() => {
-    showSection("home");
-    refreshList(customerCrud, renderCustomerList);
-  });
-
-  $("#showAddCustomer").click(() => {
-    showSection("addCustomer");
-  });
-
-  $("#showAddTransaction").click(async () => {
-    showSection("addTransaction");
-    await populateTransactionForm();
-    refreshList(visitCrud, renderTransactionList);
-  });
-  function hideAllSections() {
-    $("#home").hide();
-    $("#addCustomer").hide();
-    $("#addTransaction").hide();
-    $("#visits").hide();
-    $("#settings").hide();
-  }
-
-  // Show specific section
-  function showSection(sectionId) {
-    hideAllSections();
-    $(`#${sectionId}`).show();
   }
 });
