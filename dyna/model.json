@@ -1,0 +1,23 @@
+{
+    "database": "MyDatabase",
+    "version": 1,
+    "tables": [
+      {
+        "name": "users",
+        "schema": "++id,name"
+      }
+    ],
+    "ui": [
+      {
+        "table": "users",
+        "fields": [
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name"
+          }
+        ]
+      }
+    ]
+  }
+  
