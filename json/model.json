@@ -1,0 +1,19 @@
+{
+    "tables": [
+      {
+        "name": "todos",
+        "columns": [
+          { "name": "id", "type": "int", "autoIncrement": true },
+          { "name": "title", "type": "string" },
+          { "name": "completed", "type": "boolean" }
+        ]
+      },
+      {
+        "name": "notes",
+        "columns": [
+          { "name": "id", "type": "int", "autoIncrement": true },
+          { "name": "content", "type": "string" }
+        ]
+      }
+    ]
+  }
